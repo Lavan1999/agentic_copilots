@@ -5,6 +5,8 @@ langchain-community>=0.0.28
 langchain_together>=0.3.0
 langchain_openai>=0.3.27
 langsmith>=0.4.4
+langchain-core
+langchain-text-splitters
 
 # Streamlit app
 streamlit>=1.33.0
@@ -16,8 +18,7 @@ tiktoken>=0.9.0
 # PDF & file handling
 pymupdf==1.23.22         # for `fitz` module
 pandas>=2.2.0,<2.3.0
-
-openpyxl                 # for Excel export
+openpyxl                 # for reading/writing Excel
 
 # MongoDB
 pymongo>=4.13.0
@@ -37,3 +38,6 @@ dataclasses-json>=0.6.7
 
 # Numerical computing
 numpy>=2.3.1
+
+# Vector Store
+chromadb                # for storing historical data in embeddings

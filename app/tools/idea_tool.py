@@ -2,11 +2,21 @@ from langchain_core.tools import tool
 from app.model.llm import llm
 from typing import Optional
 from langchain_core.prompts import PromptTemplate
+from db.chroma_utils import load_rag_knowledge
+
 @tool
-def idea_analysis_tool(product_idea: str, rag_text: Optional[str] = "") -> str:
+def idea_analysis_tool(product_idea: str, product_title: str, rag_text: Optional[str] = "") -> str:
     """
-    Analyze a vague product idea and extract structured insights using LLM.
+    Analyze a vague product idea with optional RAG context pulled from ChromaDB if rag_text is present.
     """
+    enriched_rag = ""
+    if rag_text and product_title:
+        try:
+            enriched_rag = load_rag_knowledge(product_title=product_title, query=product_idea, k=5)
+        except Exception as e:
+            enriched_rag = ""
+            print(f"⚠️ Failed to load RAG from ChromaDB: {e}")
+
     prompt = PromptTemplate.from_template("""
 You are a Senior Product Strategy AI and Product Idea Analyst with deep expertise in interpreting vague product ideas across industries such as SaaS, HealthTech, EdTech, IoT, and FinTech.
 
@@ -51,18 +61,14 @@ Provide a structured response in either **Markdown** or **JSON** format with the
 - `constraints`
 - `rag_enhancements` (leave empty if no RAG was provided)
 
+---
 
-using this product idea:
-\n{product_idea}\n\n
-Additional Agile Documentation:
-\n{rag_text}
+Product Idea:
+{product_idea}
 
-Output your analysis in Markdown format with labeled sections.
+RAG Knowledge Base:
+{enriched_rag}
 """)
-    response = llm.invoke(prompt)
-    response = response.content if hasattr(response, "content") else str(response)
-    print("response:", response)
-    return response
 
-
-
+    response = llm.invoke(prompt.format_prompt(product_idea=product_idea, enriched_rag=enriched_rag))
+    return response.content if hasattr(response, "content") else str(response)

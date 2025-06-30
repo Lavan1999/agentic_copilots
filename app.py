@@ -4,6 +4,11 @@ import fitz
 from db.mongo_utils import save_product_idea 
 from app.agentstate.agent_state import AgentState
 from langgraph_flow import build_app
+from db.chroma_utils import store_excel_to_chroma
+from db.chroma_utils import store_rag_to_chroma
+import pandas as pd
+from dotenv import load_dotenv
+load_dotenv()
 
 def run_idea_analysis(product_idea: str, rag_text: str = ""):
     """Run the idea analysis workflow"""
@@ -27,10 +32,10 @@ def run_idea_analysis(product_idea: str, rag_text: str = ""):
         print(f"\n📌 RESULT:\n{final_state['idea_analysis_result']}")
         
         
-        print("\n" + "=" * 60)
-        print("✅ STORY PLANNER COMPLETED")
-        print("=" * 60)
-        print(f"\n📌 RESULT:\n{final_state['story_markdown']}")
+        # print("\n" + "=" * 60)
+        # print("✅ STORY PLANNER COMPLETED")
+        # print("=" * 60)
+        # print(f"\n📌 RESULT:\n{final_state['story_markdown']}")
         return final_state
 
 
@@ -55,9 +60,10 @@ product_idea = st.text_area(
     height=180
 )
 
+
 # Optional RAG File Upload
 st.markdown("### 📄 Upload Agile Docs / Playbook (Optional)")
-uploaded_file = st.file_uploader("Upload `.txt`, `.md`, or `.pdf`:", type=["txt", "md", "pdf"])
+uploaded_file = st.file_uploader("Upload `.txt`, `.md`, or `.pdf`:", type=["txt", "md", "pdf"], key="rag")
 
 rag_text = None
 if uploaded_file:
@@ -68,12 +74,21 @@ if uploaded_file:
         elif file_type == "pdf":
             with fitz.open(stream=uploaded_file.read(), filetype="pdf") as doc:
                 rag_text = "\n".join(page.get_text() for page in doc)
+
         if rag_text:
             st.success(f"✅ Uploaded: {uploaded_file.name}")
             with st.expander("📘 View Extracted RAG Text"):
                 st.text_area("RAG Content", rag_text, height=250)
+
+            try:
+                store_rag_to_chroma(rag_text, product_title.strip())
+                st.success("📚 RAG content indexed into ChromaDB")
+            except Exception as e:
+                st.error(f"❌ Failed to store RAG content in ChromaDB: {e}")
+
     except Exception as e:
         st.error(f"Failed to extract file: {e}")
+
 
 # Team Metadata
 default_team = {
@@ -87,6 +102,27 @@ default_team = {
 }
 st.markdown("### 👥 Team Metadata (JSON Format)")
 team_metadata_input = st.text_area("Paste your team metadata:", value=json.dumps(default_team, indent=2), height=300)
+
+
+st.markdown("### 📊 Upload Team Historical Data (Excel)")
+team_history_file = st.file_uploader("Upload team task history Excel:", type=["xlsx", "xls"])
+
+if team_history_file:
+    df_preview = pd.read_excel(team_history_file)
+    st.markdown("#### 🔍 Preview of Uploaded Excel")
+    st.dataframe(df_preview.head(10))
+
+    required_cols = {"Developer", "Task Description"}
+    if not required_cols.issubset(df_preview.columns):
+        st.error("❌ Excel must contain columns: 'Developer', 'Task Description'")
+    elif product_title.strip():
+        try:
+            store_excel_to_chroma(team_history_file, namespace=product_title.strip())
+            st.success("✅ Historical data saved to ChromaDB")
+        except Exception as e:
+            st.error(f"❌ Failed to load into ChromaDB: {e}")
+
+
 
 # Process Button
 if st.button("✨ Run Agentic Planner"):
@@ -111,14 +147,37 @@ if st.button("✨ Run Agentic Planner"):
                 result = run_idea_analysis(product_idea=product_idea, rag_text=rag_text or "")
 
             st.success("🎉 First Agentic workflow complete!")
-            st.markdown("### 🔍 First Agent Output")
-            st.write(result["idea_analysis_result"])
+            #st.markdown("### 🔍 First Agent Output")
+            st.markdown(result["idea_analysis_result"])
             
-            st.success("🎉 Story Agentic workflow complete!")
-            st.markdown("### 🔍 Story Agent Output")
-            st.markdown("### ✍️ Story Task Breakdown")
+            # st.success("🎉 Story Agentic workflow complete!")
+            # st.markdown("### 🔍 Story Agent Output")
+            # st.markdown("### ✍️ Story Task Breakdown")
 
         except json.JSONDecodeError:
             st.error("❌ Invalid JSON format in team metadata.")
         except Exception as e:
             st.error(f"🚨 Something went wrong: {e}")
+
+
+'''# Optional RAG File Upload
+st.markdown("### 📄 Upload Agile Docs / Playbook (Optional)")
+uploaded_file = st.file_uploader("Upload `.txt`, `.md`, or `.pdf`:", type=["txt", "md", "pdf"])
+
+rag_text = None
+if uploaded_file:
+    file_type = uploaded_file.name.split('.')[-1]
+    try:
+        if file_type in ["txt", "md"]:
+            rag_text = uploaded_file.read().decode("utf-8")
+        elif file_type == "pdf":
+            with fitz.open(stream=uploaded_file.read(), filetype="pdf") as doc:
+                rag_text = "\n".join(page.get_text() for page in doc)
+        if rag_text:
+            st.success(f"✅ Uploaded: {uploaded_file.name}")
+            with st.expander("📘 View Extracted RAG Text"):
+                st.text_area("RAG Content", rag_text, height=250)
+    except Exception as e:
+        st.error(f"Failed to extract file: {e}")'''
+
+

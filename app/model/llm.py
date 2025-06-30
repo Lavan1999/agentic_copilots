@@ -7,6 +7,7 @@ load_dotenv()
 llm = Together(
     model="meta-llama/Llama-3-8b-chat-hf",
     temperature=1,
+    max_tokens=512,
     api_key=os.getenv("TOGETHER_API_KEY")
 )
 

@@ -1,7 +1,7 @@
 from pymongo import MongoClient
 import os
 from dotenv import load_dotenv
-
+from bson.binary import Binary
 load_dotenv() 
 
 
@@ -29,3 +29,18 @@ def save_product_idea(title, product_idea, team_metadata, rag_text=None):
 
     result = collection.insert_one(document)
     return str(result.inserted_id)
+
+  
+def story_file_upload(collection_name):
+    collection = db[collection_name]
+    # Read Excel file and store as binary
+    with open("task_splitup.xlsx", "rb") as file:
+        excel_data = file.read()
+
+    collection.insert_one({
+        "filename": "task_splitup.xlsx",
+        "file": Binary(excel_data),
+        "type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    })
+
+    print("✅ Excel file uploaded to MongoDB.")
